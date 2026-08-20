@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoscaling-demo
+  labels:
+    app: autoscaling-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autoscaling-demo
+  template:
+    metadata:
+      labels:
+        app: autoscaling-demo
+    spec:
+      containers:
+        - name: autoscaling-demo
+          image: kubernetes-autoscaling-demo:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+          env:
+            - name: MAX_WORK_DURATION
+              value: "60"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
