@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Autoscaling Lab"
+description = "A research console for running controlled CPU workload experiments and observing a Flask service before later Kubernetes autoscaling research."
+version = "1.0.0"
+id = "artifacts/autoscaling-lab"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19935
+
+[services.development]
+run = "pnpm --filter @workspace/autoscaling-lab run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/autoscaling-lab", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/autoscaling-lab/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19935"
+BASE_PATH = "/"

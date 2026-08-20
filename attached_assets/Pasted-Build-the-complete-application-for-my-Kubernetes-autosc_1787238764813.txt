@@ -1,0 +1,456 @@
+Build the complete application for my Kubernetes autoscaling research project in ONE PASS. Do not ask me follow-up questions. Make all reasonable implementation decisions yourself.
+
+PROJECT TITLE:
+"Explainable vs. Reactive: A Controlled Comparison of LLM-Reasoning-Based and Threshold-Based Autoscaling in Kubernetes"
+
+CORE RESEARCH IDEA:
+We will later compare Kubernetes HPA with an LLM reasoning layer operating in SHADOW/ADVISORY mode.
+
+HPA will perform REAL scaling.
+
+The LLM will ONLY observe metrics and produce a recommendation/explanation. It must NEVER directly change Kubernetes replicas.
+
+For THIS Replit project, build ONLY the application layer and demo UI. Do NOT implement Kubernetes, HPA, Prometheus, metrics-server, or LLM functionality.
+
+==================================================
+TARGET ARCHITECTURE
+===================
+
+Autoscaling Lab
+│
+├── React UI
+│
+└── Flask API
+│
+└── Python CPU workload
+│
+└── Docker image
+│
+└── [Later: Kubernetes Deployment]
+│
+├── HPA → REAL SCALING
+│
+└── Prometheus → LLM ADVISOR
+(SHADOW ONLY)
+
+==================================================
+TECHNOLOGY
+==========
+
+Frontend:
+
+* React
+* TypeScript
+* Vite
+
+Backend:
+
+* Python 3.11
+* Flask
+* Gunicorn
+
+Container:
+
+* Docker
+* python:3.11-slim
+
+Testing:
+
+* pytest
+
+==================================================
+
+1. FLASK BACKEND
+   ==================================================
+
+Create a completely self-contained backend directory:
+
+backend/
+├── app.py
+├── requirements.txt
+├── requirements-dev.txt
+├── Dockerfile
+├── .dockerignore
+├── README.md
+└── tests/
+└── test_app.py
+
+The backend MUST NOT depend on Node.js, Express, Replit-specific packages, or the frontend.
+
+Implement these EXACT endpoints:
+
+GET /
+
+Return JSON:
+
+{
+"service": "kubernetes-autoscaling-demo",
+"status": "healthy"
+}
+
+GET /health
+
+Return HTTP 200:
+
+{
+"status": "healthy"
+}
+
+GET /info
+
+Return:
+
+{
+"service": "kubernetes-autoscaling-demo",
+"hostname": "...",
+"python_version": "..."
+}
+
+GET /cpu?duration=10
+
+Perform deterministic CPU-bound mathematical computation for approximately the requested duration.
+
+Return:
+
+{
+"status": "completed",
+"requested_duration": 10,
+"actual_duration": "...",
+"iterations": "..."
+}
+
+GET /work?duration=5
+
+Perform the same CPU workload.
+
+Return:
+
+{
+"status": "completed",
+"requested_duration": 5,
+"actual_duration": "...",
+"iterations": "...",
+"hostname": "...",
+"request_id": "..."
+}
+
+==================================================
+2. CPU WORKLOAD
+===============
+
+The CPU workload exists specifically so Kubernetes HPA can later observe CPU utilization.
+
+Implement a deterministic CPU-bound function.
+
+Use mathematical operations such as:
+
+sqrt
+sin
+multiplication
+addition
+
+The workload must:
+
+* consume CPU
+* be request-scoped
+* be reproducible
+* stop after the requested duration
+* never run infinitely
+* never create background workers
+* never create subprocesses
+* never change Kubernetes replicas
+
+Duration configuration:
+
+DEFAULT = 1 second
+
+MAXIMUM = 60 seconds
+
+Read:
+
+MAX_WORK_DURATION
+
+from environment variables.
+
+Reject:
+
+* negative duration
+* invalid duration
+* duration greater than maximum
+
+with HTTP 400.
+
+==================================================
+3. LOGGING
+==========
+
+Use Python's standard logging.
+
+Every workload request should log:
+
+* timestamp
+* endpoint
+* request ID
+* hostname
+* requested duration
+* actual duration
+* iterations
+
+==================================================
+4. DOCKER
+=========
+
+Create:
+
+backend/Dockerfile
+
+Use:
+
+FROM python:3.11-slim
+
+Install dependencies.
+
+Create a non-root user if practical.
+
+Expose port:
+
+5000
+
+Run with:
+
+gunicorn --bind 0.0.0.0:5000 app:app
+
+The container must be independently buildable and runnable with Docker.
+
+Do NOT require Replit to run the Docker container.
+
+==================================================
+5. TESTS
+========
+
+Create pytest tests for:
+
+* /
+* /health
+* /info
+* /cpu
+* /work
+* invalid duration
+* negative duration
+* duration above maximum
+
+Keep tests lightweight and fast.
+
+==================================================
+6. REACT FRONTEND
+=================
+
+Create/keep a polished frontend called:
+
+"Autoscaling Lab"
+
+The frontend should be a research console, NOT a normal commercial website.
+
+It should contain:
+
+### Dashboard
+
+Show:
+
+* Experiment name
+* Backend/API status
+* Service name
+* Hostname
+* Runtime
+* Maximum workload duration
+
+### CPU Workload
+
+Provide a duration input.
+
+Buttons:
+
+* Run CPU Workload
+* Run Request Workload
+
+Show:
+
+* requested duration
+* actual duration
+* iterations
+* hostname
+* request ID
+
+### Request History
+
+Display recent workload requests.
+
+Include:
+
+* endpoint
+* duration
+* execution time
+* hostname
+* request ID
+* timestamp
+
+Allow clearing browser-local history.
+
+### Research Information
+
+Include a clear explanation:
+
+"This application is the workload and observation layer for a controlled Kubernetes autoscaling study."
+
+Explain:
+
+HPA = actual scaling controller
+
+LLM = shadow/advisory reasoning layer
+
+The LLM does NOT directly control Kubernetes.
+
+==================================================
+7. FRONTEND ↔ BACKEND
+=====================
+
+The frontend must communicate with the Flask API.
+
+Use:
+
+VITE_API_URL
+
+for the backend base URL.
+
+Do NOT hard-code a Replit URL.
+
+If VITE_API_URL is empty, use relative paths.
+
+API calls should target:
+
+/
+/health
+/info
+/cpu
+/work
+
+==================================================
+8. IMPORTANT RESEARCH BOUNDARY
+==============================
+
+DO NOT implement:
+
+* Kubernetes
+* Kubernetes YAML
+* Deployment manifests
+* Service manifests
+* HPA
+* metrics-server
+* Prometheus
+* Grafana
+* Helm
+* Terraform
+* Argo CD
+* Kubernetes API
+* replica modification
+* autoscaling algorithms
+* LLM
+* OpenAI API
+* Anthropic API
+* LLM scaling decisions
+
+These will be implemented later outside this Replit project.
+
+==================================================
+9. PROJECT STRUCTURE
+====================
+
+Use a clean structure similar to:
+
+autoscaling-lab/
+│
+├── backend/
+│   ├── app.py
+│   ├── requirements.txt
+│   ├── requirements-dev.txt
+│   ├── Dockerfile
+│   ├── .dockerignore
+│   ├── README.md
+│   └── tests/
+│       └── test_app.py
+│
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── index.html
+│   └── src/
+│       ├── App.tsx
+│       ├── main.tsx
+│       └── ...
+│
+└── README.md
+
+You may improve the structure if necessary, but keep the Flask backend independently runnable.
+
+==================================================
+10. README
+==========
+
+Create a root README explaining:
+
+* Research objective
+* Architecture
+* Frontend
+* Backend
+* CPU workload
+* Docker usage
+* API endpoints
+* Local development
+* How the project will later connect to Kubernetes
+* Why HPA remains outside the application
+* Why the LLM remains shadow/advisory
+
+Include Docker commands:
+
+docker build -t kubernetes-autoscaling-demo ./backend
+
+docker run --rm -p 5000:5000 kubernetes-autoscaling-demo
+
+==================================================
+11. FINAL REQUIREMENT
+=====================
+
+This is a ONE-SHOT BUILD.
+
+Do NOT stop after creating a partial project.
+
+Do NOT ask me whether I want frontend or backend.
+
+Do NOT ask me what technology to use.
+
+Do NOT create the project in Node/Express.
+
+The backend MUST be Python 3.11 + Flask.
+
+The frontend MUST be React + TypeScript.
+
+The Dockerfile MUST exist.
+
+The backend MUST be independently runnable.
+
+The frontend MUST communicate with the Flask API.
+
+The project MUST be ready for me to export/download and run on my Windows machine with Docker Desktop.
+
+Perform all implementation necessary in this single task.
+
+At the end, give me ONLY:
+
+1. Final project structure
+2. What was created
+3. How to run the backend
+4. How to run the frontend
+5. Docker build/run command
+6. Short confirmation that Kubernetes/HPA/Prometheus/LLM were intentionally left out for the next research stage.
+
+Do not start another feature or ask me another question.
