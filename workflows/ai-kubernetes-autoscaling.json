@@ -1,0 +1,632 @@
+{
+  "name": "AI Kubernetes Autoscaling",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        -64
+      ],
+      "id": "8f6bf248-d391-410d-9ff9-bd8481b7a14e",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:9090/api/v1/query?query=100%20%2A%20sum(container_memory_working_set_bytes%7Bnamespace%3D%22default%22%2Cpod%3D~%22autoscaling-demo-.*%22%7D)%20%2F%20sum(kube_pod_container_resource_requests%7Bnamespace%3D%22default%22%2Cpod%3D~%22autoscaling-demo-.*%22%2Ccontainer%3D%22autoscaling-demo%22%2Cresource%3D%22memory%22%2Cunit%3D%22byte%22%7D)",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        176,
+        96
+      ],
+      "id": "f3e10498-84e9-42c2-b934-8db673981114",
+      "name": "Prometheus - Memory"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:9090/api/v1/query?query=sum(rate(http_requests_total%7Bjob%3D%22autoscaling-demo%22%2Cendpoint%3D%22http%22%7D%5B1m%5D))",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        384,
+        112
+      ],
+      "id": "b652443f-1b38-4bfe-9be5-796806ccc5b7",
+      "name": "Prometheus - Request Rate"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:9090/api/v1/query?query=histogram_quantile(0.95%2Csum%20by%20(le)(rate(http_request_duration_seconds_bucket%7Bjob%3D%22autoscaling-demo%22%2Cexported_endpoint%3D%22cpu%22%7D%5B5m%5D)))",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        688,
+        128
+      ],
+      "id": "de32c04b-d15c-4789-9c5f-ae61d9a762f1",
+      "name": "Prometheus - P95 Latency"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:9090/api/v1/query?query=kube_deployment_status_replicas%7Bnamespace%3D%22default%22%2Cdeployment%3D%22autoscaling-demo%22%7D",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        912,
+        128
+      ],
+      "id": "3737f836-9ae1-4c5b-a7e8-2305dfb7a6d3",
+      "name": "Prometheus - Current Replicas"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:9090/api/v1/query?query=kube_horizontalpodautoscaler_status_desired_replicas%7Bnamespace%3D%22default%22%2Chorizontalpodautoscaler%3D%22autoscaling-demo%22%7D",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1136,
+        144
+      ],
+      "id": "deaace47-64ba-44c3-b138-0491c78e266c",
+      "name": "Prometheus - HPA Desired Replicas"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:9090/api/v1/query?query=kube_horizontalpodautoscaler_spec_min_replicas%7Bnamespace%3D%22default%22%2Chorizontalpodautoscaler%3D%22autoscaling-demo%22%7D",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1360,
+        192
+      ],
+      "id": "3bd97352-6428-4f3b-8242-84325e8f866c",
+      "name": "Prometheus - Min Replicas"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:9090/api/v1/query?query=sum(rate(http_requests_total%7Bjob%3D%22autoscaling-demo%22%2Cendpoint%3D%22http%22%7D%5B5m%5D))",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1872,
+        224
+      ],
+      "id": "80e7a6f0-74de-4894-8ceb-40b617f8f158",
+      "name": "Prometheus - Request Rate 5m"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:9090/api/v1/query?query=100%20%2A%20sum(rate(container_cpu_usage_seconds_total%7Bnamespace%3D%22default%22%2Cpod%3D~%22autoscaling-demo-.*%22%2Ccpu%3D%22total%22%7D%5B5m%5D%29)%20%2F%20sum(kube_pod_container_resource_requests%7Bnamespace%3D%22default%22%2Cpod%3D~%22autoscaling-demo-.*%22%2Ccontainer%3D%22autoscaling-demo%22%2Cresource%3D%22cpu%22%2Cunit%3D%22core%22%7D)",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        192,
+        -256
+      ],
+      "id": "308bf3f8-09f8-46e2-82d3-a7afa56663b1",
+      "name": "Prometheus - CPU"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        400,
+        -96
+      ],
+      "id": "4c3e91e8-6554-4f23-82f6-77df359b1784",
+      "name": "Merge-CPU+Memory"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        688,
+        -64
+      ],
+      "id": "1be8c310-81e6-4e4e-886c-7163692c3a32",
+      "name": "Merge-Metrics 2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        912,
+        -64
+      ],
+      "id": "ee4e1fab-0b55-4a00-b7f3-6813a1d43085",
+      "name": "Merge-Metrics 3"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1136,
+        -64
+      ],
+      "id": "55a6d997-c2b6-482e-ae04-8059a4719f13",
+      "name": "Merge - Metrics 4"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1360,
+        -64
+      ],
+      "id": "ac9bd7c4-26d5-45ff-afa2-7e8002d691c1",
+      "name": "Merge - Metrics 5"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1584,
+        -64
+      ],
+      "id": "755e41c9-f6ff-4efd-9f05-fa02a2a81257",
+      "name": "Merge - Metrics 6"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1808,
+        -64
+      ],
+      "id": "a3412101-15fd-4cbf-8b62-c2614029e041",
+      "name": "Merge - Metrics 7"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2032,
+        -64
+      ],
+      "id": "987803ac-e7c8-41b1-a198-c2b193c8c6cb",
+      "name": "Merge - All Metrics"
+    },
+    {
+      "parameters": {
+        "jsCode": "function getValue(nodeName) {\n  const item = $(nodeName).first().json;\n  const result = item?.data?.result;\n\n  if (!result || result.length === 0) {\n    return null;\n  }\n\n  const value = Number(result[0]?.value?.[1]);\n\n  return Number.isFinite(value) ? value : null;\n}\n\nconst cpu = getValue(\"Prometheus - CPU\");\nconst memory = getValue(\"Prometheus - Memory\");\nconst requestRate = getValue(\"Prometheus - Request Rate\");\nconst requestRate5m = getValue(\"Prometheus - Request Rate 5m\");\nconst p95Latency = getValue(\"Prometheus - P95 Latency\");\nconst currentReplicas = getValue(\"Prometheus - Current Replicas\");\nconst hpaDesiredReplicas = getValue(\"Prometheus - HPA Desired Replicas\");\nconst minReplicas = 1;\nconst maxReplicas = 5;\n\n// Calculate traffic trend\nlet trafficChangePercent = null;\nlet trafficTrend = \"unknown\";\n\nif (\n  requestRate !== null &&\n  requestRate5m !== null &&\n  requestRate5m !== 0\n) {\n  trafficChangePercent =\n    ((requestRate - requestRate5m) / requestRate5m) * 100;\n\n  if (trafficChangePercent > 15) {\n    trafficTrend = \"increasing\";\n  } else if (trafficChangePercent < -15) {\n    trafficTrend = \"decreasing\";\n  } else {\n    trafficTrend = \"stable\";\n  }\n}\n\nconst context = {\n  service: \"autoscaling-demo\",\n\n  cpu_utilization_percent: cpu,\n  memory_utilization_percent: memory,\n\n  request_rate_rps: requestRate,\n  request_rate_5m_rps: requestRate5m,\n  traffic_change_percent: trafficChangePercent,\n  traffic_trend: trafficTrend,\n\n  p95_latency_seconds: p95Latency,\n  sla_latency_threshold_seconds: 2,\n\n  current_replicas: currentReplicas,\n  hpa_desired_replicas: hpaDesiredReplicas,\n\n  min_replicas: minReplicas,\n  max_replicas: maxReplicas\n};\n\nreturn [\n  {\n    json: context\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        -64
+      ],
+      "id": "690a7099-ce90-4c9b-9325-4e102c9a0c3c",
+      "name": "Build Scaling Context"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:9090/api/v1/query?query=kube_horizontalpodautoscaler_spec_max_replicas%7Bnamespace%3D%22default%22%2Chorizontalpodautoscaler%3D%22autoscaling-demo%22%7D",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1616,
+        224
+      ],
+      "id": "9a81de6e-874d-499d-9a5c-f5794b00c175",
+      "name": "Prometheus - Max Replicas"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    model: \"llama3.2:3b\",\n    stream: false,\n    format: \"json\",\n    prompt: `You are a Kubernetes autoscaling decision engine.\n\nAnalyze the workload context below and recommend the desired number of replicas.\n\nReturn ONLY valid JSON with exactly these fields:\n- recommended_replicas: integer\n- confidence: low, medium, or high\n- reasoning: short string\n- urgency: low, normal, or high\n\nRules:\n1. Never recommend below min_replicas or above max_replicas.\n2. Never change replicas by more than 2 from current_replicas.\n3. CPU above 80% indicates high CPU pressure.\n4. CPU below 30% indicates low CPU pressure.\n5. Traffic change above +15% is increasing.\n6. Traffic change below -15% is decreasing.\n7. Otherwise traffic is stable.\n8. The SLA latency threshold is 2 seconds for this experiment.\n9. If p95 latency exceeds the SLA, consider scaling up.\n10. Consider all supplied metrics together.\n11. Do not invent metrics.\n\nWorkload context:\n${JSON.stringify($json)}\n`\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2432,
+        -64
+      ],
+      "id": "fa571a32-369c-4f2d-8aae-eda7a1e8b0ad",
+      "name": "Ollama - Scaling Decision"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json;\n\n// Ollama returns the model's JSON inside the `response` field.\nlet decision;\n\ntry {\n  decision = JSON.parse(input.response);\n} catch (error) {\n  return [{\n    json: {\n      action: \"NO_ACTION\",\n      valid: false,\n      reason: \"Ollama returned malformed JSON\",\n      raw_response: input.response ?? null\n    }\n  }];\n}\n\n// Required fields\nconst requiredFields = [\n  \"recommended_replicas\",\n  \"confidence\",\n  \"reasoning\",\n  \"urgency\"\n];\n\nconst missingFields = requiredFields.filter(\n  field => decision[field] === undefined || decision[field] === null\n);\n\nif (missingFields.length > 0) {\n  return [{\n    json: {\n      action: \"NO_ACTION\",\n      valid: false,\n      reason: `Missing required fields: ${missingFields.join(\", \")}`,\n      raw_decision: decision\n    }\n  }];\n}\n\n// Get current scaling limits from Build Scaling Context\nconst context = $(\"Build Scaling Context\").first().json;\n\nconst current = Number(context.current_replicas);\nconst min = Number(context.min_replicas);\nconst max = Number(context.max_replicas);\n\nconst requested = Number(decision.recommended_replicas);\n\n// Validate numeric values\nif (\n  !Number.isFinite(current) ||\n  !Number.isFinite(min) ||\n  !Number.isFinite(max) ||\n  !Number.isInteger(requested)\n) {\n  return [{\n    json: {\n      action: \"NO_ACTION\",\n      valid: false,\n      reason: \"Invalid replica value detected\",\n      raw_decision: decision\n    }\n  }];\n}\n\n// Hard bounds\nif (requested < min || requested > max) {\n  return [{\n    json: {\n      action: \"NO_ACTION\",\n      valid: false,\n      reason: `AI recommendation ${requested} is outside allowed range ${min}-${max}`,\n      raw_decision: decision\n    }\n  }];\n}\n\n// Maximum scaling step\nconst change = requested - current;\n\nlet validatedRequested = requested;\n\nif (Math.abs(change) > 2) {\n  const direction = change > 0 ? 1 : -1;\n  validatedRequested = current + (2 * direction);\n}\n\nconst validatedChange = validatedRequested - current;\n\n// Validate enum values\nconst validConfidence = [\"low\", \"medium\", \"high\"];\nconst validUrgency = [\"low\", \"normal\", \"high\"];\n\nif (!validConfidence.includes(decision.confidence)) {\n  return [{\n    json: {\n      action: \"NO_ACTION\",\n      valid: false,\n      reason: `Invalid confidence value: ${decision.confidence}`,\n      raw_decision: decision\n    }\n  }];\n}\n\nif (!validUrgency.includes(decision.urgency)) {\n  return [{\n    json: {\n      action: \"NO_ACTION\",\n      valid: false,\n      reason: `Invalid urgency value: ${decision.urgency}`,\n      raw_decision: decision\n    }\n  }];\n}\n\n// Safety validation passed\nreturn [{\n  json: {\n   action: validatedRequested === current ? \"NO_ACTION\" : \"SCALE\",\n    valid: true,\n    current_replicas: current,\n    recommended_replicas: validatedRequested,\n    replica_change: validatedChange,\n    min_replicas: min,\n    max_replicas: max,\n    confidence: decision.confidence,\n    urgency: decision.urgency,\n    reasoning: decision.reasoning\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        -64
+      ],
+      "id": "1b062e73-10e0-4f81-8824-7c15b61a0a0d",
+      "name": "Parse AI Decision"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "39ecc8cd-f2d0-41a2-85ef-cb538c926fa7",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2880,
+        -64
+      ],
+      "id": "493730a3-52c3-4c68-bd00-f6b50e019199",
+      "name": "Safety Gate"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "http://127.0.0.1:8001/apis/apps/v1/namespaces/default/deployments/autoscaling-demo/scale",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/merge-patch+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"spec\": {\n    \"replicas\": {{ $json.recommended_replicas }}\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3072,
+        -288
+      ],
+      "id": "3565967f-a6a6-4e68-827e-1b0a4458f74f",
+      "name": "Kubernetes - Scale Deployment"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Prometheus - CPU",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prometheus - Memory",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prometheus - Request Rate",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prometheus - P95 Latency",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prometheus - Current Replicas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prometheus - HPA Desired Replicas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prometheus - Min Replicas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prometheus - Max Replicas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prometheus - Request Rate 5m",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prometheus - Request Rate 5m": {
+      "main": [
+        [
+          {
+            "node": "Merge - All Metrics",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Prometheus - CPU": {
+      "main": [
+        [
+          {
+            "node": "Merge-CPU+Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prometheus - Memory": {
+      "main": [
+        [
+          {
+            "node": "Merge-CPU+Memory",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge-CPU+Memory": {
+      "main": [
+        [
+          {
+            "node": "Merge-Metrics 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prometheus - Request Rate": {
+      "main": [
+        [
+          {
+            "node": "Merge-Metrics 2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge-Metrics 2": {
+      "main": [
+        [
+          {
+            "node": "Merge-Metrics 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prometheus - P95 Latency": {
+      "main": [
+        [
+          {
+            "node": "Merge-Metrics 3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge-Metrics 3": {
+      "main": [
+        [
+          {
+            "node": "Merge - Metrics 4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prometheus - Current Replicas": {
+      "main": [
+        [
+          {
+            "node": "Merge - Metrics 4",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge - Metrics 4": {
+      "main": [
+        [
+          {
+            "node": "Merge - Metrics 5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prometheus - HPA Desired Replicas": {
+      "main": [
+        [
+          {
+            "node": "Merge - Metrics 5",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Prometheus - Min Replicas": {
+      "main": [
+        [
+          {
+            "node": "Merge - Metrics 6",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge - Metrics 5": {
+      "main": [
+        [
+          {
+            "node": "Merge - Metrics 6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge - Metrics 6": {
+      "main": [
+        [
+          {
+            "node": "Merge - Metrics 7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge - Metrics 7": {
+      "main": [
+        [
+          {
+            "node": "Merge - All Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge - All Metrics": {
+      "main": [
+        [
+          {
+            "node": "Build Scaling Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prometheus - Max Replicas": {
+      "main": [
+        [
+          {
+            "node": "Merge - Metrics 7",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Build Scaling Context": {
+      "main": [
+        [
+          {
+            "node": "Ollama - Scaling Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama - Scaling Decision": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Decision": {
+      "main": [
+        [
+          {
+            "node": "Safety Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safety Gate": {
+      "main": [
+        [
+          {
+            "node": "Kubernetes - Scale Deployment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9ccbdfa6-4157-4e39-ad89-cef09c30f658",
+  "meta": {
+    "instanceId": "73f075cece72f7dcea6a35a43bb1e841f60b9cd15c959634882e30d362ce88f3"
+  },
+  "nodeGroups": [],
+  "id": "c8XF8pk5ucKzwXXZ",
+  "tags": []
+}
