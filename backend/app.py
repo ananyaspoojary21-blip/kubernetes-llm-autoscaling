@@ -9,6 +9,7 @@ import uuid
 from typing import Any
 
 from flask import Flask, jsonify, request
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 
 DEFAULT_WORK_DURATION = 1.0
@@ -22,6 +23,65 @@ logger = logging.getLogger("autoscaling-lab")
 
 app = Flask(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Prometheus metrics
+# ---------------------------------------------------------------------------
+
+REQUEST_COUNT = Counter(
+    "http_requests_total",
+    "Total number of HTTP requests",
+    ["method", "endpoint", "status"],
+)
+
+REQUEST_LATENCY = Histogram(
+    "http_request_duration_seconds",
+    "HTTP request latency in seconds",
+    ["method", "endpoint"],
+)
+
+
+@app.before_request
+def start_timer() -> None:
+    """Start the timer for measuring request latency."""
+    request._prometheus_start_time = time.perf_counter()
+
+
+@app.after_request
+def record_metrics(response):
+    """Record request count and request latency."""
+    endpoint = request.endpoint or "unknown"
+
+    REQUEST_COUNT.labels(
+        method=request.method,
+        endpoint=endpoint,
+        status=response.status_code,
+    ).inc()
+
+    start_time = getattr(request, "_prometheus_start_time", None)
+
+    if start_time is not None:
+        duration = time.perf_counter() - start_time
+
+        REQUEST_LATENCY.labels(
+            method=request.method,
+            endpoint=endpoint,
+        ).observe(duration)
+
+    return response
+
+
+@app.get("/metrics")
+def metrics():
+    """Expose Prometheus metrics."""
+    return generate_latest(), 200, {
+        "Content-Type": CONTENT_TYPE_LATEST,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Workload configuration
+# ---------------------------------------------------------------------------
 
 def max_work_duration() -> float:
     """Return the configured maximum, falling back to the safe default."""
@@ -42,13 +102,16 @@ def parse_duration() -> tuple[float | None, tuple[Any, int] | None]:
 
     if not math.isfinite(duration):
         return None, ({"error": "duration must be a finite number"}, 400)
+
     if duration < 0:
         return None, ({"error": "duration cannot be negative"}, 400)
+
     if duration > max_work_duration():
         return None, (
             {"error": f"duration cannot exceed {max_work_duration():g} seconds"},
             400,
         )
+
     return duration, None
 
 
@@ -67,17 +130,23 @@ def run_cpu_workload(duration: float) -> tuple[float, int]:
     # Keep the calculation observable to Python without affecting the response.
     if accumulator == float("inf"):
         logger.debug("workload accumulator overflowed")
+
     return time.perf_counter() - started_at, iterations
 
 
-def workload_response(endpoint: str, include_request_details: bool) -> tuple[Any, int]:
+def workload_response(
+    endpoint: str,
+    include_request_details: bool,
+) -> tuple[Any, int]:
     duration, error = parse_duration()
+
     if error:
         return error
 
     request_id = str(uuid.uuid4())
     actual_duration, iterations = run_cpu_workload(duration or 0.0)
     hostname = socket.gethostname()
+
     logger.info(
         "workload timestamp=%s endpoint=%s request_id=%s hostname=%s "
         "requested_duration=%s actual_duration=%.6f iterations=%s",
@@ -96,14 +165,30 @@ def workload_response(endpoint: str, include_request_details: bool) -> tuple[Any
         "actual_duration": round(actual_duration, 6),
         "iterations": iterations,
     }
+
     if include_request_details:
-        response.update({"hostname": hostname, "request_id": request_id})
+        response.update(
+            {
+                "hostname": hostname,
+                "request_id": request_id,
+            }
+        )
+
     return jsonify(response), 200
 
 
+# ---------------------------------------------------------------------------
+# Application endpoints
+# ---------------------------------------------------------------------------
+
 @app.get("/")
 def root() -> Any:
-    return jsonify({"service": "kubernetes-autoscaling-demo", "status": "healthy"})
+    return jsonify(
+        {
+            "service": "kubernetes-autoscaling-demo",
+            "status": "healthy",
+        }
+    )
 
 
 @app.get("/health")
@@ -125,13 +210,22 @@ def info() -> Any:
 
 @app.get("/cpu")
 def cpu() -> Any:
-    return workload_response("/cpu", include_request_details=False)
+    return workload_response(
+        "/cpu",
+        include_request_details=False,
+    )
 
 
 @app.get("/work")
 def work() -> Any:
-    return workload_response("/work", include_request_details=True)
+    return workload_response(
+        "/work",
+        include_request_details=True,
+    )
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+    app.run(
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "5000")),
+    )
